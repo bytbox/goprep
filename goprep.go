@@ -10,6 +10,7 @@ import (
 	"go/parser"
 	"go/scanner"
 	"go/token"
+	"os"
 )
 
 // Represents a token as returned by scanner.Scanner.Scan(), with the position,
@@ -18,6 +19,15 @@ type TokenInfo struct {
 	Pos   token.Pos
 	Token token.Token
 	Str   string
+}
+
+// StdInit initializes appropriate processing channels for os.Stdin and
+// os.Stdout. For the most part, this should be used instead of specific calls
+// to Write and Read.
+func StdInit() (<-chan TokenInfo, chan<- string, <-chan interface{}) {
+	tokIn := Read(os.Stdin)
+	tokOut, done := Write(os.Stdout)
+	return tokIn, tokOut, done
 }
 
 // Write allows writing properly formatted go code to a given io.Writer via a
