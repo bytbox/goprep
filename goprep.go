@@ -134,6 +134,7 @@ func Pass(tIn <-chan TokenInfo, out chan<- string, f func(TokenInfo) bool) <-cha
 				tOut <- tok
 			}
 		}
+		close(tOut)
 	}()
 	return tOut
 }
