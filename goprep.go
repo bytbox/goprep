@@ -121,3 +121,20 @@ func IgnoreType(tIn <-chan TokenInfo, out chan<- string, tok token.Token) <-chan
 		return ti.Token == tok
 	})
 }
+
+// Pass redirects all tokens for which f evaluates to true to the output
+// channel, returning the altered input channel.
+func Pass(tIn <-chan TokenInfo, out chan<- string, f func(TokenInfo) bool) <-chan TokenInfo {
+	tOut := make(chan TokenInfo)
+	go func() {
+		for tok := range tIn {
+			if f(tok) {
+				out <- tok.Str
+			} else {
+				tOut <- tok
+			}
+		}
+	}()
+	return tOut
+}
+

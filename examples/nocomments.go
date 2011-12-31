@@ -10,10 +10,7 @@ import (
 func main() {
 	tokIn, tokOut, done := StdInit()
 	tokIn = IgnoreType(tokIn, tokOut, token.COMMENT)
-	for tok := range tokIn {
-		str := tok.Str
-		tokOut <- str
-	}
+	tokIn = Pass(tokIn, tokOut, func (TokenInfo) bool { return true })
 	close(tokOut)
 	<-done
 }
