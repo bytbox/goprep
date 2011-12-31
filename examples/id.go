@@ -1,7 +1,7 @@
 package main
 
 import (
-	"goprep"
+	"github.com/bytbox/goprep"
 	"os"
 )
 
