@@ -153,3 +153,12 @@ func PassType(tIn <-chan TokenInfo, out chan<- string, tok token.Token) <-chan T
 		return ti.Token == tok
 	})
 }
+
+// Discard discards whatever tokens remain and waits for the channel to close,
+// then closing the output channel as well.  It is an appropriate way to end a
+// long list of processing declarations.
+func Discard(tIn <-chan TokenInfo, out chan<- string) {
+	for _ = range tIn {}
+	close(out)
+}
+
