@@ -1,5 +1,7 @@
 // This package provides a framework for creating powerful lexical
 // preprocessors for go code.
+//
+// TODO add 'line' directives
 package goprep
 
 import (
