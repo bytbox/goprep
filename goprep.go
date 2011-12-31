@@ -92,6 +92,8 @@ func Read(input io.Reader) <-chan TokenInfo {
 	return tokC
 }
 
+// Ignore produces a modified input stream that does not include any tokens for
+// which f evaluates to true.
 func Ignore(tIn <-chan TokenInfo, out chan<- string, f func(TokenInfo) bool) <-chan TokenInfo {
 	tOut := make(chan TokenInfo)
 	go func() {
