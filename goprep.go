@@ -139,3 +139,17 @@ func Pass(tIn <-chan TokenInfo, out chan<- string, f func(TokenInfo) bool) <-cha
 	return tOut
 }
 
+// PassToken is like Pass, passing all tokens whose string content is equal to
+// the given string.
+func PassToken(tIn <-chan TokenInfo, out chan<- string, str string) <-chan TokenInfo {
+	return Pass(tIn, out, func(ti TokenInfo) bool {
+		return ti.Str == str
+	})
+}
+
+// PassType is like Pass, passing all tokens of a certain type.
+func PassType(tIn <-chan TokenInfo, out chan<- string, tok token.Token) <-chan TokenInfo {
+	return Pass(tIn, out, func(ti TokenInfo) bool {
+		return ti.Token == tok
+	})
+}
