@@ -3,17 +3,29 @@
 package main
 
 import (
-	"github.com/bytbox/goprep"
+	. "github.com/bytbox/goprep"
 	"go/token"
 )
 
-func main() {
-	tokIn, tokOut, done := goprep.StdInit()
-	for tok := range tokIn {
-		if tok.Token != token.COMMENT {
-			str := tok.Str
-			tokOut <- str
+func Ignore(tIn <-chan TokenInfo, out chan<- string, f func(TokenInfo) bool) <-chan TokenInfo {
+	tOut := make(chan TokenInfo)
+	go func() {
+		for tok := range tIn {
+			if !f(tok) {
+				tOut <- tok
+			}
 		}
+		close(tOut)
+	}()
+	return tOut
+}
+
+func main() {
+	tokIn, tokOut, done := StdInit()
+	tokIn = Ignore(tokIn, tokOut, func (ti TokenInfo) bool {return ti.Token == token.COMMENT})
+	for tok := range tokIn {
+		str := tok.Str
+		tokOut <- str
 	}
 	close(tokOut)
 	<-done
