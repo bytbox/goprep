@@ -50,7 +50,8 @@ func Write(output io.Writer) (chan<- string, <-chan interface{}) {
 	// parse the tokens into an AST and write to output
 	go func(reader io.ReadCloser, output io.Writer, done chan interface{}) {
 		fset := token.NewFileSet()
-		file, err := parser.ParseFile(fset, "<stdin>", reader, 0)
+		file, err := parser.ParseFile(
+			fset, "<stdin>", reader, parser.ParseComments)
 		if err != nil {
 			panic(err)
 		}
@@ -79,6 +80,9 @@ func Read(input io.Reader) <-chan TokenInfo {
 	go func(s scanner.Scanner, tokC chan<- TokenInfo) {
 		pos, tok, str := s.Scan()
 		for tok != token.EOF {
+			if tok == token.COMMENT {
+				str = str + "\n"
+			}
 			tokC <- TokenInfo{pos, tok, str}
 			pos, tok, str = s.Scan()
 		}

@@ -1,12 +1,20 @@
-TARGS = id
+include ${GOROOT}/src/Make.inc
+
+TARGS = id nocomments
 
 all: ${TARGS}
 
 clean:
-	rm *.6 ${TARGS}
+	rm *.${O} ${TARGS}
 
-id: id.6
-	6l -o $@ id.6
+id: id.${O}
+	${LD} -o $@ id.6
 
-id.6: id.go
-	6g id.go
+id.${O}: id.go
+	${GC} id.go
+
+nocomments: nocomments.${O}
+	${LD} -o $@ nocomments.6
+
+nocomments.${O}: nocomments.go
+	${GC} nocomments.go

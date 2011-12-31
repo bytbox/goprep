@@ -1,4 +1,4 @@
-/* goprep demo : id : changes nothing */
+/* goprep demo : nocomments : removes all comments */
 
 package main
 
