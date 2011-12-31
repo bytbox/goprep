@@ -91,3 +91,16 @@ func Read(input io.Reader) <-chan TokenInfo {
 
 	return tokC
 }
+
+func Ignore(tIn <-chan TokenInfo, out chan<- string, f func(TokenInfo) bool) <-chan TokenInfo {
+	tOut := make(chan TokenInfo)
+	go func() {
+		for tok := range tIn {
+			if !f(tok) {
+				tOut <- tok
+			}
+		}
+		close(tOut)
+	}()
+	return tOut
+}
