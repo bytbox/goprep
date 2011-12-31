@@ -93,7 +93,7 @@ func Read(input io.Reader) <-chan TokenInfo {
 }
 
 // Ignore produces a modified input stream that does not include any tokens for
-// which f evaluates to true.
+// which f evaluates to true, thus discarding a certain class of tokens.
 func Ignore(tIn <-chan TokenInfo, out chan<- string, f func(TokenInfo) bool) <-chan TokenInfo {
 	tOut := make(chan TokenInfo)
 	go func() {
@@ -105,4 +105,19 @@ func Ignore(tIn <-chan TokenInfo, out chan<- string, f func(TokenInfo) bool) <-c
 		close(tOut)
 	}()
 	return tOut
+}
+
+// IgnoreToken is like Ignore, discarding all tokens whose string content is
+// equal to the given string.
+func IgnoreToken(tIn <-chan TokenInfo, out chan<- string, str string) <-chan TokenInfo {
+	return Ignore(tIn, out, func(ti TokenInfo) bool {
+		return ti.Str == str
+	})
+}
+
+// IgnoreType is like Ignore, discarding all tokens of a certain type.
+func IgnoreType(tIn <-chan TokenInfo, out chan<- string, tok token.Token) <-chan TokenInfo {
+	return Ignore(tIn, out, func(ti TokenInfo) bool {
+		return ti.Token == tok
+	})
 }

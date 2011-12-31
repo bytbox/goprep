@@ -9,7 +9,7 @@ import (
 
 func main() {
 	tokIn, tokOut, done := StdInit()
-	tokIn = Ignore(tokIn, tokOut, func (ti TokenInfo) bool {return ti.Token == token.COMMENT})
+	tokIn = IgnoreType(tokIn, tokOut, token.COMMENT)
 	for tok := range tokIn {
 		str := tok.Str
 		tokOut <- str
