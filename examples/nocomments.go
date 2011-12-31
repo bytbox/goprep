@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/bytbox/goprep"
+	"go/token"
 )
 
 func main() {
