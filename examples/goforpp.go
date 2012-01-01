@@ -18,6 +18,7 @@ func main() {
 		for tok := range in {
 			if tok.Str != "gofor" {
 				out <- tok.Str
+				sync <- nil
 				continue
 			}
 			sync <- nil
