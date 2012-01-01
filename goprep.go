@@ -104,17 +104,31 @@ func False(TokenInfo) bool { return false}
 func Lines(pipeline *Pipeline) {
 	tIn := pipeline.Input
 	tOut := make(chan TokenInfo)
+	out := pipeline.Output
+	isync := pipeline.Sync
+	osync := make(chan interface{})
 	fname := ""
 	lno := 0
+	pipeline.Input = tOut
+	pipeline.Sync = osync
 	go func() {
 		for tok := range tIn {
 			fname = tok.Pos.Filename
 			lno = tok.Pos.Line
 			tOut <- tok
+			<-osync // wait for the bounce
+
+			// now send the 'line' directive if necessary
+			if tok.Str == "\n" {
+				ld := fmt.Sprintf("//line %s:%d\n", fname, lno)
+				out <- ld
+				<-osync
+			}
+
+			isync <- nil
 		}
 		close(tOut)
 	}()
-	pipeline.Input = tOut
 }
 
 // Ignore produces a modified input stream that does not include any tokens for
