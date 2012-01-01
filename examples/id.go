@@ -9,7 +9,7 @@ import (
 
 func main() {
 	p := PipeInit(os.Stdin)
-	//Lines(p)
+	Lines(p)
 	Pass(True)(p)
 	Discard(p)
 	PipeEnd(p, os.Stdout)
