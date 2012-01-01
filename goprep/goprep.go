@@ -26,10 +26,11 @@ type TokenInfo struct {
 //
 // We're using channels to serve as an abstracted for-loop, not because we want
 // parallelism. All processing is synchronized with Sync. A message to Sync
-// signals that the token has been 'used', and the sender is ready for the
-// next. Since adding a read to sync (which is 'always' being read from by the
-// frontend goroutine) would result in undeterministic behaviour, routines
-// originating artificial tokens must create a new synchronization channel.
+// signals that the token has been 'used' (sent to Output or discarded), and
+// the sender is ready for the next. Since adding a read to sync (which is
+// 'always' being read from by the frontend goroutine) would result in
+// undeterministic behaviour, routines originating artificial tokens must
+// create a new synchronization channel.
 type Pipeline struct {
 	Input  chan TokenInfo
 	Output chan string
