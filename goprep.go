@@ -18,18 +18,25 @@ import (
 // Represents a token as returned by scanner.Scanner.Scan(), with the position,
 // token type, and string representation.
 type TokenInfo struct {
-	Pos   token.Pos
+	Pos   token.Position
 	Token token.Token
 	Str   string
+}
+
+// The pipeline from TokenInfo inputs to string outputs.
+type Pipeline struct {
+	Input  <-chan TokenInfo
+	Output chan<- string
+	Sync   <-chan interface{}
 }
 
 // StdInit initializes appropriate processing channels for os.Stdin and
 // os.Stdout. For the most part, this should be used instead of specific calls
 // to Write and Read.
-func StdInit() (<-chan TokenInfo, chan<- string, <-chan interface{}) {
+func StdInit() *Pipeline {
 	tokIn := Read(os.Stdin)
 	tokOut, done := Write(os.Stdout)
-	return tokIn, tokOut, done
+	return &Pipeline{tokIn, tokOut, done}
 }
 
 // Write allows writing properly formatted go code to a given io.Writer via a
@@ -79,17 +86,17 @@ func Read(input io.Reader) <-chan TokenInfo {
 
 	tokC := make(chan TokenInfo)
 
-	go func(s scanner.Scanner, tokC chan<- TokenInfo) {
+	go func(fset *token.FileSet, s scanner.Scanner, tokC chan<- TokenInfo) {
 		pos, tok, str := s.Scan()
 		for tok != token.EOF {
 			if tok == token.COMMENT {
 				str = str + "\n"
 			}
-			tokC <- TokenInfo{pos, tok, str}
+			tokC <- TokenInfo{fset.Position(pos), tok, str}
 			pos, tok, str = s.Scan()
 		}
 		close(tokC)
-	}(s, tokC)
+	}(fset, s, tokC)
 
 	return tokC
 }
@@ -99,6 +106,24 @@ func True(TokenInfo) bool { return true }
 
 // False takes a TokenInfo and always returns false.
 func False(TokenInfo) bool { return false}
+
+// Lines passes line pragma information as needed to the output channel, thus
+// ensuring that line numbers in the output match line numbers in the input.
+func Lines(pipeline *Pipeline) {
+	tIn := pipeline.Input
+	tOut := make(chan TokenInfo)
+	fname := ""
+	lno := 0
+	go func() {
+		for tok := range tIn {
+			fname = tok.Pos.Filename
+			lno = tok.Pos.Line
+			tOut <- tok
+		}
+		close(tOut)
+	}()
+	pipeline.Input = tOut
+}
 
 // Ignore produces a modified input stream that does not include any tokens for
 // which f evaluates to true, thus discarding a certain class of tokens.
@@ -132,32 +157,36 @@ func IgnoreType(tIn <-chan TokenInfo, out chan<- string, tok token.Token) <-chan
 
 // Pass redirects all tokens for which f evaluates to true to the output
 // channel, returning the altered input channel.
-func Pass(tIn <-chan TokenInfo, out chan<- string, f func(TokenInfo) bool) <-chan TokenInfo {
-	tOut := make(chan TokenInfo)
-	go func() {
-		for tok := range tIn {
-			if f(tok) {
-				out <- tok.Str
-			} else {
-				tOut <- tok
+func Pass(f func(TokenInfo) bool) func(*Pipeline) {
+	return func(p *Pipeline) {
+		tOut := make(chan TokenInfo)
+		tIn := p.Input
+		out := p.Output
+		go func() {
+			for tok := range tIn {
+				if f(tok) {
+					out <- tok.Str
+				} else {
+					tOut <- tok
+				}
 			}
-		}
-		close(tOut)
-	}()
-	return tOut
+			close(tOut)
+		}()
+		p.Input = tOut
+	}
 }
 
 // PassToken is like Pass, passing all tokens whose string content is equal to
 // the given string.
-func PassToken(tIn <-chan TokenInfo, out chan<- string, str string) <-chan TokenInfo {
-	return Pass(tIn, out, func(ti TokenInfo) bool {
+func PassToken(str string) func(*Pipeline) {
+	return Pass(func(ti TokenInfo) bool {
 		return ti.Str == str
 	})
 }
 
 // PassType is like Pass, passing all tokens of a certain type.
-func PassType(tIn <-chan TokenInfo, out chan<- string, tok token.Token) <-chan TokenInfo {
-	return Pass(tIn, out, func(ti TokenInfo) bool {
+func PassType(tok token.Token) func(*Pipeline) {
+	return Pass(func(ti TokenInfo) bool {
 		return ti.Token == tok
 	})
 }
@@ -165,8 +194,9 @@ func PassType(tIn <-chan TokenInfo, out chan<- string, tok token.Token) <-chan T
 // Discard discards whatever tokens remain and waits for the channel to close,
 // then closing the output channel as well.  It is an appropriate way to end a
 // long list of processing declarations.
-func Discard(tIn <-chan TokenInfo, out chan<- string) {
-	for _ = range tIn {}
-	close(out)
+func Discard(p *Pipeline) {
+	for _ = range p.Input {}
+	close(p.Output)
+	<-p.Sync
 }
 

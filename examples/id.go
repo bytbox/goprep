@@ -3,15 +3,12 @@
 package main
 
 import (
-	"goprep"
+	. "goprep"
 )
 
 func main() {
-	tokIn, tokOut, done := goprep.StdInit()
-	for tok := range tokIn {
-		str := tok.Str
-		tokOut <- str
-	}
-	close(tokOut)
-	<-done
+	p := StdInit()
+	//Lines(p)
+	Pass(True)(p)
+	Discard(p)
 }
