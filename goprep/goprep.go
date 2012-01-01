@@ -5,12 +5,12 @@ package goprep
 import (
 	"bytes"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"go/printer"
 	"go/parser"
+	"go/printer"
 	"go/scanner"
 	"go/token"
+	"io"
+	"io/ioutil"
 )
 
 // Represents a token as returned by scanner.Scanner.Scan(), with the position,
@@ -42,16 +42,18 @@ func PipeInit(iReader io.Reader) *Pipe {
 	input := make(chan TokenInfo)
 	output := make(chan string)
 	sync := make(chan interface{})
-	p := &Pipe{ input, output, sync }
+	p := &Pipe{input, output, sync}
 
 	src, err := ioutil.ReadAll(iReader)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
 	fset := token.NewFileSet()
 	file := fset.AddFile("<stdin>", fset.Base(), len(src))
 
 	s := scanner.Scanner{}
-	s.Init(file, src, nil, scanner.InsertSemis | scanner.ScanComments)
+	s.Init(file, src, nil, scanner.InsertSemis|scanner.ScanComments)
 
 	go func() {
 		pos, tok, str := s.Scan()
@@ -66,14 +68,15 @@ func PipeInit(iReader io.Reader) *Pipe {
 		close(input)
 	}()
 
-
 	return p
 }
 
 // PipeEnd implements the closing (writing) portion of a pipeline.
 func PipeEnd(p *Pipe, oWriter io.Writer) {
 	go func() {
-		for _ = range p.Input { panic("Leftovers") }
+		for _ = range p.Input {
+			panic("Leftovers")
+		}
 		close(p.Output)
 		close(p.Sync)
 	}()
@@ -90,7 +93,9 @@ func PipeEnd(p *Pipe, oWriter io.Writer) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(
 		fset, "<stdin>", outbuf, parser.ParseComments)
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 	printer.Fprint(oWriter, fset, file)
 }
 
@@ -98,7 +103,7 @@ func PipeEnd(p *Pipe, oWriter io.Writer) {
 func True(TokenInfo) bool { return true }
 
 // False takes a TokenInfo and always returns false.
-func False(TokenInfo) bool { return false}
+func False(TokenInfo) bool { return false }
 
 // Lines passes line pragma information as needed to the output channel, thus
 // ensuring that line numbers in the output match line numbers in the input.
