@@ -24,6 +24,9 @@ type TokenInfo struct {
 }
 
 // The pipeline from TokenInfo inputs to string outputs.
+//
+// We're using channels to serve as an abstracted for-loop, not because we want
+// parallelism. All processing is synchronized with Sync.
 type Pipeline struct {
 	Input  <-chan TokenInfo
 	Output chan<- string
@@ -34,9 +37,9 @@ type Pipeline struct {
 // os.Stdout. For the most part, this should be used instead of specific calls
 // to Write and Read.
 func StdInit() *Pipeline {
-	tokIn := Read(os.Stdin)
-	tokOut, done := Write(os.Stdout)
-	return &Pipeline{tokIn, tokOut, done}
+	tokOut, sync := Write(os.Stdout)
+	tokIn := Read(os.Stdin, sync)
+	return &Pipeline{tokIn, tokOut, sync}
 }
 
 // Write allows writing properly formatted go code to a given io.Writer via a
@@ -52,6 +55,7 @@ func Write(output io.Writer) (chan<- string, <-chan interface{}) {
 	go func(output io.WriteCloser, tokC <-chan string) {
 		for tok := range tokC {
 			fmt.Fprintf(output, " %s", tok)
+			done <- nil
 		}
 		output.Close()
 	}(writer, tokC)
@@ -72,8 +76,9 @@ func Write(output io.Writer) (chan<- string, <-chan interface{}) {
 }
 
 // Read reads from the given io.Reader and writes a series of TokenInfo objects
-// to the returned channel.
-func Read(input io.Reader) <-chan TokenInfo {
+// to the returned channel. Read will synchronize with the given channel sync
+// if it is not nil.
+func Read(input io.Reader, sync <-chan interface{}) <-chan TokenInfo {
 	// start reading
 	src, err := ioutil.ReadAll(input)
 	if err != nil { panic(err) }
@@ -93,6 +98,7 @@ func Read(input io.Reader) <-chan TokenInfo {
 				str = str + "\n"
 			}
 			tokC <- TokenInfo{fset.Position(pos), tok, str}
+			<-sync
 			pos, tok, str = s.Scan()
 		}
 		close(tokC)
