@@ -23,10 +23,15 @@ type TokenInfo struct {
 	Str   string
 }
 
-// The pipeline from TokenInfo inputs to string outputs.
+// The pipeline from TokenInfo inputs to string outputs. This would probably be
+// a monad in haskell.
 //
 // We're using channels to serve as an abstracted for-loop, not because we want
-// parallelism. All processing is synchronized with Sync.
+// parallelism. All processing is synchronized with Sync. A message to Sync
+// signals that the token has been 'used', and the sender is ready for the
+// next. Since adding a read to sync (which is 'always' being read from by the
+// frontend goroutine) would result in undeterministic behaviour, routines
+// originating artificial tokens must create a new synchronization channel.
 type Pipeline struct {
 	Input  <-chan TokenInfo
 	Output chan<- string
