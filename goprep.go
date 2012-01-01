@@ -65,7 +65,7 @@ func Write(output io.Writer) (chan<- string, <-chan interface{}) {
 			panic(err)
 		}
 		printer.Fprint(output, fset, file)
-		done <- nil
+		close(done)
 	}(reader, output, done)
 
 	return tokC, done
@@ -200,6 +200,6 @@ func PassType(tok token.Token) func(*Pipeline) {
 func Discard(p *Pipeline) {
 	for _ = range p.Input {}
 	close(p.Output)
-	<-p.Sync
+	for _ = range p.Sync {}
 }
 
