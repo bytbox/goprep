@@ -3,7 +3,7 @@
 package main
 
 import (
-	"github.com/bytbox/goprep"
+	"goprep"
 )
 
 func main() {
