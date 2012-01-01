@@ -127,30 +127,33 @@ func Lines(pipeline *Pipeline) {
 
 // Ignore produces a modified input stream that does not include any tokens for
 // which f evaluates to true, thus discarding a certain class of tokens.
-func Ignore(tIn <-chan TokenInfo, out chan<- string, f func(TokenInfo) bool) <-chan TokenInfo {
-	tOut := make(chan TokenInfo)
-	go func() {
-		for tok := range tIn {
-			if !f(tok) {
-				tOut <- tok
+func Ignore(f func(TokenInfo) bool) func(*Pipeline) {
+	return func(p *Pipeline) {
+		tOut := make(chan TokenInfo)
+		tIn := p.Input
+		go func() {
+			for tok := range tIn {
+				if !f(tok) {
+					tOut <- tok
+				}
 			}
-		}
-		close(tOut)
-	}()
-	return tOut
+			close(tOut)
+		}()
+		p.Input = tOut
+	}
 }
 
 // IgnoreToken is like Ignore, discarding all tokens whose string content is
 // equal to the given string.
-func IgnoreToken(tIn <-chan TokenInfo, out chan<- string, str string) <-chan TokenInfo {
-	return Ignore(tIn, out, func(ti TokenInfo) bool {
+func IgnoreToken(str string) func(*Pipeline) {
+	return Ignore(func(ti TokenInfo) bool {
 		return ti.Str == str
 	})
 }
 
 // IgnoreType is like Ignore, discarding all tokens of a certain type.
-func IgnoreType(tIn <-chan TokenInfo, out chan<- string, tok token.Token) <-chan TokenInfo {
-	return Ignore(tIn, out, func(ti TokenInfo) bool {
+func IgnoreType(tok token.Token) func(*Pipeline) {
+	return Ignore(func(ti TokenInfo) bool {
 		return ti.Token == tok
 	})
 }
