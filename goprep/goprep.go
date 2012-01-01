@@ -21,8 +21,8 @@ type TokenInfo struct {
 	Str   string
 }
 
-// The pipeline from TokenInfo inputs to string outputs. This would probably be
-// a monad in haskell.
+// Pipe represents a unit of the pipeline from TokenInfo inputs to string
+// outputs. This would probably be a monad in haskell.
 //
 // We're using channels to serve as an abstracted for-loop, not because we want
 // parallelism. All processing is synchronized with Sync. A message to Sync
@@ -31,18 +31,18 @@ type TokenInfo struct {
 // 'always' being read from by the frontend goroutine) would result in
 // undeterministic behaviour, routines originating artificial tokens must
 // create a new synchronization channel.
-type Pipeline struct {
+type Pipe struct {
 	Input  chan TokenInfo
 	Output chan string
 	Sync   chan interface{}
 }
 
 // PipeInit initializes a pipeline; input will be read from iReader.
-func PipeInit(iReader io.Reader) *Pipeline {
+func PipeInit(iReader io.Reader) *Pipe {
 	input := make(chan TokenInfo)
 	output := make(chan string)
 	sync := make(chan interface{})
-	p := &Pipeline{ input, output, sync }
+	p := &Pipe{ input, output, sync }
 
 	src, err := ioutil.ReadAll(iReader)
 	if err != nil { panic(err) }
@@ -71,7 +71,13 @@ func PipeInit(iReader io.Reader) *Pipeline {
 }
 
 // PipeEnd implements the closing (writing) portion of a pipeline.
-func PipeEnd(p *Pipeline, oWriter io.Writer) {
+func PipeEnd(p *Pipe, oWriter io.Writer) {
+	go func() {
+		for _ = range p.Input { panic("Leftovers") }
+		close(p.Output)
+		close(p.Sync)
+	}()
+
 	outbuf := new(bytes.Buffer)
 	output := p.Output
 
@@ -96,7 +102,7 @@ func False(TokenInfo) bool { return false}
 
 // Lines passes line pragma information as needed to the output channel, thus
 // ensuring that line numbers in the output match line numbers in the input.
-func Lines(pipeline *Pipeline) {
+func Lines(pipeline *Pipe) {
 	tIn := pipeline.Input
 	tOut := make(chan TokenInfo)
 	out := pipeline.Output
@@ -127,8 +133,8 @@ func Lines(pipeline *Pipeline) {
 
 // Ignore produces a modified input stream that does not include any tokens for
 // which f evaluates to true, thus discarding a certain class of tokens.
-func Ignore(f func(TokenInfo) bool) func(*Pipeline) {
-	return func(p *Pipeline) {
+func Ignore(f func(TokenInfo) bool) func(*Pipe) {
+	return func(p *Pipe) {
 		tOut := make(chan TokenInfo)
 		tIn := p.Input
 		sync := p.Sync
@@ -148,14 +154,14 @@ func Ignore(f func(TokenInfo) bool) func(*Pipeline) {
 
 // IgnoreToken is like Ignore, discarding all tokens whose string content is
 // equal to the given string.
-func IgnoreToken(str string) func(*Pipeline) {
+func IgnoreToken(str string) func(*Pipe) {
 	return Ignore(func(ti TokenInfo) bool {
 		return ti.Str == str
 	})
 }
 
 // IgnoreType is like Ignore, discarding all tokens of a certain type.
-func IgnoreType(tok token.Token) func(*Pipeline) {
+func IgnoreType(tok token.Token) func(*Pipe) {
 	return Ignore(func(ti TokenInfo) bool {
 		return ti.Token == tok
 	})
@@ -163,8 +169,8 @@ func IgnoreType(tok token.Token) func(*Pipeline) {
 
 // Pass redirects all tokens for which f evaluates to true to the output
 // channel, returning the altered input channel.
-func Pass(f func(TokenInfo) bool) func(*Pipeline) {
-	return func(p *Pipeline) {
+func Pass(f func(TokenInfo) bool) func(*Pipe) {
+	return func(p *Pipe) {
 		tOut := make(chan TokenInfo)
 		tIn := p.Input
 		out := p.Output
@@ -186,29 +192,15 @@ func Pass(f func(TokenInfo) bool) func(*Pipeline) {
 
 // PassToken is like Pass, passing all tokens whose string content is equal to
 // the given string.
-func PassToken(str string) func(*Pipeline) {
+func PassToken(str string) func(*Pipe) {
 	return Pass(func(ti TokenInfo) bool {
 		return ti.Str == str
 	})
 }
 
 // PassType is like Pass, passing all tokens of a certain type.
-func PassType(tok token.Token) func(*Pipeline) {
+func PassType(tok token.Token) func(*Pipe) {
 	return Pass(func(ti TokenInfo) bool {
 		return ti.Token == tok
 	})
-}
-
-// Discard discards whatever tokens remain and waits for the channel to close,
-// then closing the output channel as well.  It is an appropriate way to end a
-// long list of processing declarations.
-func Discard(p *Pipeline) {
-	input, output, sync := p.Input, p.Output, p.Sync
-	go func() {
-		for _ = range input {
-			sync <- nil
-		}
-		close(output)
-		close(sync)
-	}()
 }

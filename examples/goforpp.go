@@ -67,6 +67,5 @@ func main() {
 	}(p.Input, nIn, p.Output, p.Sync)
 	p.Input = nIn
 
-	Discard(p)
 	PipeEnd(p, os.Stdout)
 }

@@ -13,6 +13,5 @@ func main() {
 	Lines(p)
 	IgnoreType(token.COMMENT)(p)
 	Pass(True)(p)
-	Discard(p)
 	PipeEnd(p, os.Stdout)
 }
