@@ -8,7 +8,7 @@ import (
 
 func main() {
 	p := StdInit()
-	//Lines(p)
+	Lines(p)
 	Pass(True)(p)
 	Discard(p)
 }

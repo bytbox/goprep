@@ -47,7 +47,7 @@ func StdInit() *Pipeline {
 // channel will have a single nil value sent when writing is complete.
 func Write(output io.Writer) (chan<- string, chan interface{}) {
 	tokC := make(chan string)
-	done := make(chan interface{})
+	sync := make(chan interface{})
 
 	reader, writer := io.Pipe()
 
@@ -55,13 +55,13 @@ func Write(output io.Writer) (chan<- string, chan interface{}) {
 	go func(output io.WriteCloser, tokC <-chan string) {
 		for tok := range tokC {
 			fmt.Fprintf(output, " %s", tok)
-			done <- nil
+			sync <- nil
 		}
 		output.Close()
 	}(writer, tokC)
 
 	// parse the tokens into an AST and write to output
-	go func(reader io.ReadCloser, output io.Writer, done chan interface{}) {
+	go func(reader io.ReadCloser, output io.Writer, sync chan interface{}) {
 		fset := token.NewFileSet()
 		file, err := parser.ParseFile(
 			fset, "<stdin>", reader, parser.ParseComments)
@@ -69,10 +69,10 @@ func Write(output io.Writer) (chan<- string, chan interface{}) {
 			panic(err)
 		}
 		printer.Fprint(output, fset, file)
-		close(done)
-	}(reader, output, done)
+		close(sync)
+	}(reader, output, sync)
 
-	return tokC, done
+	return tokC, sync
 }
 
 // Read reads from the given io.Reader and writes a series of TokenInfo objects
