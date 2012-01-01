@@ -72,23 +72,19 @@ func PipeInit(iReader io.Reader) *Pipeline {
 // PipeEnd implements the closing (writing) portion of a pipeline.
 func PipeEnd(p *Pipeline, oWriter io.Writer) {
 	outbuf := new(bytes.Buffer)
-	_, output, sync := p.Input, p.Output, p.Sync
+	output := p.Output
 
 	// spit the tokens to the write end of the pipe
 	for tok := range output {
 		fmt.Fprintf(outbuf, " %s", tok)
-		sync <- nil
 	}
 
 	// parse the tokens into an AST and write to output
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(
 		fset, "<stdin>", outbuf, parser.ParseComments)
-	if err != nil {
-		panic(err)
-	}
+	if err != nil { panic(err) }
 	printer.Fprint(oWriter, fset, file)
-	close(sync)
 }
 
 // True takes a TokenInfo and always returns true.
@@ -120,7 +116,6 @@ func Lines(pipeline *Pipeline) {
 			if tok.Str == "\n" {
 				ld := fmt.Sprintf("//line %s:%d\n", fname, lno)
 				out <- ld
-				<-osync
 			}
 
 			isync <- nil
@@ -172,10 +167,12 @@ func Pass(f func(TokenInfo) bool) func(*Pipeline) {
 		tOut := make(chan TokenInfo)
 		tIn := p.Input
 		out := p.Output
+		sync := p.Sync
 		go func() {
 			for tok := range tIn {
 				if f(tok) {
 					out <- tok.Str
+					sync <- nil
 				} else {
 					tOut <- tok
 				}
@@ -211,5 +208,6 @@ func Discard(p *Pipeline) {
 			sync <- nil
 		}
 		close(output)
+		close(sync)
 	}()
 }
