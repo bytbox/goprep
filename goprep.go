@@ -30,7 +30,7 @@ type TokenInfo struct {
 type Pipeline struct {
 	Input  <-chan TokenInfo
 	Output chan<- string
-	Sync   <-chan interface{}
+	Sync   chan interface{}
 }
 
 // StdInit initializes appropriate processing channels for os.Stdin and
@@ -45,7 +45,7 @@ func StdInit() *Pipeline {
 // Write allows writing properly formatted go code to a given io.Writer via a
 // series of token strings passed to the returned channel. The second returned
 // channel will have a single nil value sent when writing is complete.
-func Write(output io.Writer) (chan<- string, <-chan interface{}) {
+func Write(output io.Writer) (chan<- string, chan interface{}) {
 	tokC := make(chan string)
 	done := make(chan interface{})
 
@@ -137,10 +137,13 @@ func Ignore(f func(TokenInfo) bool) func(*Pipeline) {
 	return func(p *Pipeline) {
 		tOut := make(chan TokenInfo)
 		tIn := p.Input
+		sync := p.Sync
 		go func() {
 			for tok := range tIn {
 				if !f(tok) {
 					tOut <- tok
+				} else {
+					sync <- nil
 				}
 			}
 			close(tOut)
