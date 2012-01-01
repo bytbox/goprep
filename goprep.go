@@ -5,6 +5,7 @@
 package goprep
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,7 +13,6 @@ import (
 	"go/parser"
 	"go/scanner"
 	"go/token"
-	"os"
 )
 
 // Represents a token as returned by scanner.Scanner.Scan(), with the position,
@@ -33,59 +33,19 @@ type TokenInfo struct {
 // frontend goroutine) would result in undeterministic behaviour, routines
 // originating artificial tokens must create a new synchronization channel.
 type Pipeline struct {
-	Input  <-chan TokenInfo
-	Output chan<- string
+	Input  chan TokenInfo
+	Output chan string
 	Sync   chan interface{}
 }
 
-// StdInit initializes appropriate processing channels for os.Stdin and
-// os.Stdout. For the most part, this should be used instead of specific calls
-// to Write and Read.
-func StdInit() *Pipeline {
-	tokOut, sync := Write(os.Stdout)
-	tokIn := Read(os.Stdin, sync)
-	return &Pipeline{tokIn, tokOut, sync}
-}
-
-// Write allows writing properly formatted go code to a given io.Writer via a
-// series of token strings passed to the returned channel. The second returned
-// channel will have a single nil value sent when writing is complete.
-func Write(output io.Writer) (chan<- string, chan interface{}) {
-	tokC := make(chan string)
+// PipeInit initializes a pipeline; input will be read from iReader.
+func PipeInit(iReader io.Reader) *Pipeline {
+	input := make(chan TokenInfo)
+	output := make(chan string)
 	sync := make(chan interface{})
+	p := &Pipeline{ input, output, sync }
 
-	reader, writer := io.Pipe()
-
-	// spit the tokens to the write end of the pipe
-	go func(output io.WriteCloser, tokC <-chan string) {
-		for tok := range tokC {
-			fmt.Fprintf(output, " %s", tok)
-			sync <- nil
-		}
-		output.Close()
-	}(writer, tokC)
-
-	// parse the tokens into an AST and write to output
-	go func(reader io.ReadCloser, output io.Writer, sync chan interface{}) {
-		fset := token.NewFileSet()
-		file, err := parser.ParseFile(
-			fset, "<stdin>", reader, parser.ParseComments)
-		if err != nil {
-			panic(err)
-		}
-		printer.Fprint(output, fset, file)
-		close(sync)
-	}(reader, output, sync)
-
-	return tokC, sync
-}
-
-// Read reads from the given io.Reader and writes a series of TokenInfo objects
-// to the returned channel. Read will synchronize with the given channel sync
-// if it is not nil.
-func Read(input io.Reader, sync <-chan interface{}) <-chan TokenInfo {
-	// start reading
-	src, err := ioutil.ReadAll(input)
+	src, err := ioutil.ReadAll(iReader)
 	if err != nil { panic(err) }
 
 	fset := token.NewFileSet()
@@ -94,22 +54,43 @@ func Read(input io.Reader, sync <-chan interface{}) <-chan TokenInfo {
 	s := scanner.Scanner{}
 	s.Init(file, src, nil, scanner.InsertSemis | scanner.ScanComments)
 
-	tokC := make(chan TokenInfo)
-
-	go func(fset *token.FileSet, s scanner.Scanner, tokC chan<- TokenInfo) {
+	go func() {
 		pos, tok, str := s.Scan()
 		for tok != token.EOF {
 			if tok == token.COMMENT {
 				str = str + "\n"
 			}
-			tokC <- TokenInfo{fset.Position(pos), tok, str}
-			<-sync
+			input <- TokenInfo{fset.Position(pos), tok, str}
+			<-sync // wait for sent token to land
 			pos, tok, str = s.Scan()
 		}
-		close(tokC)
-	}(fset, s, tokC)
+		close(input)
+	}()
 
-	return tokC
+
+	return p
+}
+
+// PipeEnd implements the closing (writing) portion of a pipeline.
+func PipeEnd(p *Pipeline, oWriter io.Writer) {
+	outbuf := new(bytes.Buffer)
+	_, output, sync := p.Input, p.Output, p.Sync
+
+	// spit the tokens to the write end of the pipe
+	for tok := range output {
+		fmt.Fprintf(outbuf, " %s", tok)
+		sync <- nil
+	}
+
+	// parse the tokens into an AST and write to output
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(
+		fset, "<stdin>", outbuf, parser.ParseComments)
+	if err != nil {
+		panic(err)
+	}
+	printer.Fprint(oWriter, fset, file)
+	close(sync)
 }
 
 // True takes a TokenInfo and always returns true.
@@ -212,8 +193,11 @@ func PassType(tok token.Token) func(*Pipeline) {
 // then closing the output channel as well.  It is an appropriate way to end a
 // long list of processing declarations.
 func Discard(p *Pipeline) {
-	for _ = range p.Input {}
-	close(p.Output)
-	for _ = range p.Sync {}
+	input, output, sync := p.Input, p.Output, p.Sync
+	go func() {
+		for _ = range input {
+			sync <- nil
+		}
+		close(output)
+	}()
 }
-

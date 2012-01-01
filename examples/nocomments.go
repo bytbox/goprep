@@ -5,11 +5,13 @@ package main
 import (
 	. "goprep"
 	"go/token"
+	"os"
 )
 
 func main() {
-	p := StdInit()
+	p := PipeInit(os.Stdin)
 	IgnoreType(token.COMMENT)(p)
 	Pass(True)(p)
 	Discard(p)
+	PipeEnd(p, os.Stdout)
 }

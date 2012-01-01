@@ -4,11 +4,13 @@ package main
 
 import (
 	. "goprep"
+	"os"
 )
 
 func main() {
-	p := StdInit()
-	Lines(p)
+	p := PipeInit(os.Stdin)
+	//Lines(p)
 	Pass(True)(p)
 	Discard(p)
+	PipeEnd(p, os.Stdout)
 }
