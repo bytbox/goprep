@@ -1,0 +1,4 @@
+ * Some sort of 'Trigger' that can be nested nicely.
+ * Maybe do something fancy with imports?
+ * Better syntax watching (determining nested depth etc.)
+
