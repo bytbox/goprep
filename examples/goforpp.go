@@ -23,15 +23,6 @@ func Pop(s *BoolStack) (*BoolStack, bool) {
 	return s.Base, s.Val
 }
 
-// Link
-func Link(f func(chan Token, chan Token, chan string, chan interface{})) func(*Pipe) {
-	return func(p *Pipe) {
-		nIn := make(chan Token)
-		go f(p.Input, nIn, p.Output, p.Sync)
-		p.Input = nIn
-	}
-}
-
 // Trigger
 func Trigger(p func(Token) bool,
 	f func(chan Token, chan Token, chan string, chan interface{})) func(*Pipe) {

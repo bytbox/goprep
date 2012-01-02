@@ -209,3 +209,12 @@ func PassType(tok token.Token) func(*Pipe) {
 		return ti.Token == tok
 	})
 }
+
+// Link adds the given routine to the pipeline.
+func Link(f func(chan Token, chan Token, chan string, chan interface{})) func(*Pipe) {
+	return func(p *Pipe) {
+		nIn := make(chan Token)
+		go f(p.Input, nIn, p.Output, p.Sync)
+		p.Input = nIn
+	}
+}
