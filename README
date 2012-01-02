@@ -1,2 +1,8 @@
 A framework for constructing powerful lexical preprocessors for go, in go.
 
+Quick overview of how it works: tokens (goprep.Token) are sent down a
+'pipeline', which is a series of 'pipes'. Each pipe represents a link between
+two goroutines. Each goroutine may drop, add, or modify tokens it receives
+before passing them on to the next goroutine. Goroutines may also directly
+write string output (to a `chan string'). Look at goforpp for an example.
+
