@@ -23,14 +23,6 @@ func Pop(s *BoolStack) (*BoolStack, bool) {
 	return s.Base, s.Val
 }
 
-// Trigger
-func Trigger(p func(Token) bool,
-	f func(chan Token, chan Token, chan string, chan interface{})) func(*Pipe) {
-	return func(p *Pipe) {
-
-	}
-}
-
 func main() {
 	p := PipeInit(os.Stdin)
 	Lines(p)
