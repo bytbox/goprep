@@ -15,13 +15,13 @@ import (
 
 // Represents a token as returned by scanner.Scanner.Scan(), with the position,
 // token type, and string representation.
-type TokenInfo struct {
+type Token struct {
 	Pos   token.Position
 	Token token.Token
 	Str   string
 }
 
-// Pipe represents a unit of the pipeline from TokenInfo inputs to string
+// Pipe represents a unit of the pipeline from Token inputs to string
 // outputs. This would probably be a monad in haskell.
 //
 // We're using channels to serve as an abstracted for-loop, not because we want
@@ -32,14 +32,14 @@ type TokenInfo struct {
 // undeterministic behaviour, routines originating artificial tokens must
 // create a new synchronization channel.
 type Pipe struct {
-	Input  chan TokenInfo
+	Input  chan Token
 	Output chan string
 	Sync   chan interface{}
 }
 
 // PipeInit initializes a pipeline; input will be read from iReader.
 func PipeInit(iReader io.Reader) *Pipe {
-	input := make(chan TokenInfo)
+	input := make(chan Token)
 	output := make(chan string)
 	sync := make(chan interface{})
 	p := &Pipe{input, output, sync}
@@ -61,7 +61,7 @@ func PipeInit(iReader io.Reader) *Pipe {
 			if tok == token.COMMENT {
 				str = str + "\n"
 			}
-			input <- TokenInfo{fset.Position(pos), tok, str}
+			input <- Token{fset.Position(pos), tok, str}
 			<-sync // wait for sent token to land
 			pos, tok, str = s.Scan()
 		}
@@ -99,17 +99,17 @@ func PipeEnd(p *Pipe, oWriter io.Writer) {
 	printer.Fprint(oWriter, fset, file)
 }
 
-// True takes a TokenInfo and always returns true.
-func True(TokenInfo) bool { return true }
+// True takes a Token and always returns true.
+func True(Token) bool { return true }
 
-// False takes a TokenInfo and always returns false.
-func False(TokenInfo) bool { return false }
+// False takes a Token and always returns false.
+func False(Token) bool { return false }
 
 // Lines passes line pragma information as needed to the output channel, thus
 // ensuring that line numbers in the output match line numbers in the input.
 func Lines(pipeline *Pipe) {
 	tIn := pipeline.Input
-	tOut := make(chan TokenInfo)
+	tOut := make(chan Token)
 	out := pipeline.Output
 	isync := pipeline.Sync
 	osync := make(chan interface{})
@@ -138,9 +138,9 @@ func Lines(pipeline *Pipe) {
 
 // Ignore produces a modified input stream that does not include any tokens for
 // which f evaluates to true, thus discarding a certain class of tokens.
-func Ignore(f func(TokenInfo) bool) func(*Pipe) {
+func Ignore(f func(Token) bool) func(*Pipe) {
 	return func(p *Pipe) {
-		tOut := make(chan TokenInfo)
+		tOut := make(chan Token)
 		tIn := p.Input
 		sync := p.Sync
 		go func() {
@@ -160,23 +160,23 @@ func Ignore(f func(TokenInfo) bool) func(*Pipe) {
 // IgnoreToken is like Ignore, discarding all tokens whose string content is
 // equal to the given string.
 func IgnoreToken(str string) func(*Pipe) {
-	return Ignore(func(ti TokenInfo) bool {
+	return Ignore(func(ti Token) bool {
 		return ti.Str == str
 	})
 }
 
 // IgnoreType is like Ignore, discarding all tokens of a certain type.
 func IgnoreType(tok token.Token) func(*Pipe) {
-	return Ignore(func(ti TokenInfo) bool {
+	return Ignore(func(ti Token) bool {
 		return ti.Token == tok
 	})
 }
 
 // Pass redirects all tokens for which f evaluates to true to the output
 // channel, returning the altered input channel.
-func Pass(f func(TokenInfo) bool) func(*Pipe) {
+func Pass(f func(Token) bool) func(*Pipe) {
 	return func(p *Pipe) {
-		tOut := make(chan TokenInfo)
+		tOut := make(chan Token)
 		tIn := p.Input
 		out := p.Output
 		sync := p.Sync
@@ -198,14 +198,14 @@ func Pass(f func(TokenInfo) bool) func(*Pipe) {
 // PassToken is like Pass, passing all tokens whose string content is equal to
 // the given string.
 func PassToken(str string) func(*Pipe) {
-	return Pass(func(ti TokenInfo) bool {
+	return Pass(func(ti Token) bool {
 		return ti.Str == str
 	})
 }
 
 // PassType is like Pass, passing all tokens of a certain type.
 func PassType(tok token.Token) func(*Pipe) {
-	return Pass(func(ti TokenInfo) bool {
+	return Pass(func(ti Token) bool {
 		return ti.Token == tok
 	})
 }
