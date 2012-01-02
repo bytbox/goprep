@@ -3,4 +3,5 @@
  * Better syntax watching (determining nested depth etc.)
  * Better error checking
  * Better line number reporting
+ * Some sort of 'thunk' for contextual translation
 
