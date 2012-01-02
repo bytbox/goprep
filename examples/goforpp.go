@@ -24,9 +24,11 @@ func Pop(s *BoolStack) (*BoolStack, bool) {
 }
 
 // Link
-func Link(func(chan Token, chan Token, chan string, chan interface{})) func(*Pipe) {
+func Link(f func(chan Token, chan Token, chan string, chan interface{})) func(*Pipe) {
 	return func(p *Pipe) {
-
+		nIn := make(chan Token)
+		go f(p.Input, nIn, p.Output, p.Sync)
+		p.Input = nIn
 	}
 }
 
@@ -42,9 +44,8 @@ func main() {
 	p := PipeInit(os.Stdin)
 	Lines(p)
 
-	nIn := make(chan Token)
 	s := (*BoolStack)(nil)
-	go func(in chan Token,
+	Link(func(in chan Token,
 		tOut chan Token,
 		out chan string,
 		sync chan interface{}) {
@@ -79,8 +80,7 @@ func main() {
 			sync <- nil
 		}
 		close(tOut)
-	}(p.Input, nIn, p.Output, p.Sync)
-	p.Input = nIn
+	})(p)
 
 	PipeEnd(p, os.Stdout)
 }
