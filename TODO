@@ -1,4 +1,6 @@
  * Some sort of 'Trigger' that can be nested nicely.
  * Maybe do something fancy with imports?
  * Better syntax watching (determining nested depth etc.)
+ * Better error checking
+ * Better line number reporting
 
