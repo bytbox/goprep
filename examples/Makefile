@@ -5,7 +5,7 @@ TARGS = id nocomments goforpp
 all: ${TARGS}
 
 clean:
-	rm *.${O} ${TARGS}
+	rm -f *.${O} ${TARGS}
 
 id: id.${O}
 	${LD} -o $@ id.${O}

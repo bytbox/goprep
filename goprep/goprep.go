@@ -53,11 +53,12 @@ func PipeInit(iReader io.Reader) *Pipe {
 	file := fset.AddFile("<stdin>", fset.Base(), len(src))
 
 	s := scanner.Scanner{}
-	s.Init(file, src, nil, scanner.InsertSemis|scanner.ScanComments)
+	s.Init(file, src, nil, scanner.ScanComments)
 
 	go func() {
 		pos, tok, str := s.Scan()
 		for tok != token.EOF {
+			if len(str) == 0 { str = tok.String() }
 			if tok == token.COMMENT {
 				str = str + "\n"
 			}
